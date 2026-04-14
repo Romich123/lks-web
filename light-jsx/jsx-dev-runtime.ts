@@ -24,7 +24,7 @@ function removeRenderable(rs: Renderable) {
     if (rs.parentNode) rs.parentNode.removeChild(rs)
 }
 
-function addRenderable(parent: Node, rs: Renderable) {
+export function addRenderable(parent: Node, rs: Renderable) {
     if (Array.isArray(rs)) {
         for (const r of rs) {
             addRenderable(parent, r)
@@ -112,7 +112,8 @@ function anyToRenderable(value: any): Renderable {
     }
 }
 
-function setAttribute(elm: HTMLElement, name: string, val: any) {
+function setAttribute(elm: Element, name: string, val: any) {
+    console.log(name, val)
     if (name.startsWith("on") && name.toLowerCase() in window) {
         elm.addEventListener(name.toLowerCase().substring(2), val)
     } else if (name === "ref") {
@@ -122,7 +123,7 @@ function setAttribute(elm: HTMLElement, name: string, val: any) {
             setAttribute(elm, name, val())
         })
     } else if (name === "style") {
-        Object.assign(elm.style, val)
+        Object.assign((elm as any).style, val)
     } else if (val === true) {
         elm.setAttribute(name, name)
     } else if (val !== false && val != null) {
@@ -133,12 +134,25 @@ function setAttribute(elm: HTMLElement, name: string, val: any) {
 }
 
 function basicElement(tag: string, props: { [k: string]: any } & { children?: JSX.Element[] }): Node {
+    const children = props.children
+
     let result
     if (props.xmlns && typeof props.xmlns === "string") {
-        result = document.createAttributeNS(props.xmlns, tag)
+        result = document.createElementNS(props.xmlns, tag)
     } else {
         result = document.createElement(tag)
     }
+
+    if (!children) return result
+    addRenderable(result, anyToRenderable(children))
+
+    for (const propKey in props) {
+        if (propKey === "children") continue
+
+        setAttribute(result, propKey, props[propKey as any])
+    }
+
+    return result
 }
 
 export function jsxDEV(tag: JSX.ElementType, props: { [k: string]: any } & { children?: JSX.Element[] }): JSX.Element {
@@ -146,17 +160,7 @@ export function jsxDEV(tag: JSX.ElementType, props: { [k: string]: any } & { chi
     const children = props.children
 
     if (typeof tag === "string") {
-        const result = document.createElement(tag)
-
-        if (!children) return result
-
-        addRenderable(result, anyToRenderable(children))
-
-        for (const propKey in props) {
-            result.setAttribute()
-        }
-
-        return result
+        return basicElement(tag, props)
     }
 
     // Fragment
